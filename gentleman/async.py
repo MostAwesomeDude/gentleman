@@ -14,7 +14,7 @@ from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
 from twisted.python import log
 
-from gentleman.errors import GanetiApiError
+from gentleman.errors import ClientError, GanetiApiError
 
 headers = Headers({
     "accept": ["application/json"],
@@ -105,7 +105,7 @@ class TwistedRapiClient(object):
 
         self._base_url = "https://%s:%d" % (host, port)
 
-    def _SendRequest(self, method, path, query=None, content=None):
+    def request(self, method, path, query=None, content=None):
         """
         Sends an HTTP request.
 
@@ -164,6 +164,3 @@ class TwistedRapiClient(object):
             response.deliverBody(protocol)
 
         return protocol.d
-
-    def get(self, *args, **kwargs):
-        return self._SendRequest("get", *args, **kwargs)

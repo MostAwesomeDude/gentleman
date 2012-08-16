@@ -9,70 +9,7 @@ import socket
 
 import requests
 
-from gentleman.errors import GanetiApiError
-
-
-GANETI_RAPI_PORT = 5080
-GANETI_RAPI_VERSION = 2
-
-REPLACE_DISK_PRI = "replace_on_primary"
-REPLACE_DISK_SECONDARY = "replace_on_secondary"
-REPLACE_DISK_CHG = "replace_new_secondary"
-REPLACE_DISK_AUTO = "replace_auto"
-
-NODE_EVAC_PRI = "primary-only"
-NODE_EVAC_SEC = "secondary-only"
-NODE_EVAC_ALL = "all"
-
-NODE_ROLE_DRAINED = "drained"
-NODE_ROLE_MASTER_CANDIATE = "master-candidate"
-NODE_ROLE_MASTER = "master"
-NODE_ROLE_OFFLINE = "offline"
-NODE_ROLE_REGULAR = "regular"
-
-JOB_STATUS_QUEUED = "queued"
-JOB_STATUS_WAITING = "waiting"
-JOB_STATUS_CANCELING = "canceling"
-JOB_STATUS_RUNNING = "running"
-JOB_STATUS_CANCELED = "canceled"
-JOB_STATUS_SUCCESS = "success"
-JOB_STATUS_ERROR = "error"
-JOB_STATUS_FINALIZED = frozenset([
-  JOB_STATUS_CANCELED,
-  JOB_STATUS_SUCCESS,
-  JOB_STATUS_ERROR,
-  ])
-JOB_STATUS_ALL = frozenset([
-  JOB_STATUS_QUEUED,
-  JOB_STATUS_WAITING,
-  JOB_STATUS_CANCELING,
-  JOB_STATUS_RUNNING,
-  ]) | JOB_STATUS_FINALIZED
-
-# Legacy name
-JOB_STATUS_WAITLOCK = JOB_STATUS_WAITING
-
-# Internal constants
-_REQ_DATA_VERSION_FIELD = "__version__"
-_INST_NIC_PARAMS = frozenset(["mac", "ip", "mode", "link"])
-_INST_CREATE_V0_DISK_PARAMS = frozenset(["size"])
-_INST_CREATE_V0_PARAMS = frozenset([
-    "os", "pnode", "snode", "iallocator", "start", "ip_check", "name_check",
-    "hypervisor", "file_storage_dir", "file_driver", "dry_run",
-])
-_INST_CREATE_V0_DPARAMS = frozenset(["beparams", "hvparams"])
-
-# Feature strings
-INST_CREATE_REQV1 = "instance-create-reqv1"
-INST_REINSTALL_REQV1 = "instance-reinstall-reqv1"
-NODE_MIGRATE_REQV1 = "node-migrate-reqv1"
-NODE_EVAC_RES1 = "node-evac-res1"
-
-# Old feature constant names in case they're references by users of this module
-_INST_CREATE_REQV1 = INST_CREATE_REQV1
-_INST_REINSTALL_REQV1 = INST_REINSTALL_REQV1
-_NODE_MIGRATE_REQV1 = NODE_MIGRATE_REQV1
-_NODE_EVAC_RES1 = NODE_EVAC_RES1
+from gentleman.errors import ClientError, GanetiApiError
 
 headers = {
     "accept": "application/json",
@@ -117,8 +54,8 @@ class RequestsRapiClient(object):
 
     _json_encoder = json.JSONEncoder(sort_keys=True)
 
-    def __init__(self, host, port=GANETI_RAPI_PORT, username=None,
-                 password=None, timeout=60):
+    def __init__(self, host, port=5080, username=None, password=None,
+                 timeout=60):
         """
         Initializes this class.
 
@@ -153,7 +90,7 @@ class RequestsRapiClient(object):
         self._base_url = "https://%s" % address
 
 
-    def _SendRequest(self, method, path, query=None, content=None):
+    def request(self, method, path, query=None, content=None):
         """
         Sends an HTTP request.
 
@@ -210,7 +147,3 @@ class RequestsRapiClient(object):
             return json.loads(r.content)
         else:
             return None
-
-
-    def get(self, *args, **kwargs):
-        return self._SendRequest("get", *args, **kwargs)

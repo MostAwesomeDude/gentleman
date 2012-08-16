@@ -6,8 +6,6 @@ This module provides combinators which are used to provide a full RAPI client.
 
 from gentleman.errors import GanetiApiError
 
-GANETI_RAPI_PORT = 5080
-
 REPLACE_DISK_PRI = "replace_on_primary"
 REPLACE_DISK_SECONDARY = "replace_on_secondary"
 REPLACE_DISK_CHG = "replace_new_secondary"
@@ -111,7 +109,7 @@ def GetVersion(r):
     @return: Ganeti Remote API version
     """
 
-    return r.get("/version")
+    return r.request("get", "/version")
 
 
 def GetFeatures(r):
@@ -123,11 +121,11 @@ def GetFeatures(r):
     """
 
     try:
-        return r.get("/2/features")
+        return r.request("get", "/2/features")
     except GanetiApiError, err:
         # Older RAPI servers don't support this resource. Just return an
         # empty list.
-        if err.code == requests.codes.not_found:
+        if err.code == 404:
             return []
         else:
             raise
@@ -141,7 +139,7 @@ def GetOperatingSystems(r):
     @return: operating systems
     """
 
-    return r.get("/2/os")
+    return r.request("get", "/2/os")
 
 
 def GetInfo(r):
@@ -152,7 +150,7 @@ def GetInfo(r):
     @return: information about the cluster
     """
 
-    return r.get("/2/info")
+    return r.request("get", "/2/info")
 
 
 def RedistributeConfig(r):
@@ -162,7 +160,8 @@ def RedistributeConfig(r):
     @return: job id
 
     """
-    return r.put("/2/redistribute-config")
+    return r.request("put", "/2/redistribute-config")
+
 
 def ModifyCluster(r, **kwargs):
     """
@@ -174,9 +173,10 @@ def ModifyCluster(r, **kwargs):
     @return: job id
     """
 
-    return r.put("/2/modify", content=kwargs)
+    return r.request("put", "/2/modify", content=kwargs)
 
-def GetClusterTags(self):
+
+def GetClusterTags(r):
     """
     Gets the cluster tags.
 
@@ -184,9 +184,10 @@ def GetClusterTags(self):
     @return: cluster tags
     """
 
-    return self._SendRequest("get", "/2/tags")
+    return r.request("get", "/2/tags")
 
-def AddClusterTags(self, tags, dry_run=False):
+
+def AddClusterTags(r, tags, dry_run=False):
     """
     Adds tags to the cluster.
 
@@ -204,10 +205,10 @@ def AddClusterTags(self, tags, dry_run=False):
         "tag": tags,
     }
 
-    return self._SendRequest("put", "/2/tags" % GANETI_RAPI_VERSION,
-                             query=query)
+    return r.request("put", "/2/tags", query=query)
 
-def DeleteClusterTags(self, tags, dry_run=False):
+
+def DeleteClusterTags(r, tags, dry_run=False):
     """
     Deletes tags from the cluster.
 
@@ -222,10 +223,10 @@ def DeleteClusterTags(self, tags, dry_run=False):
         "tag": tags,
     }
 
-    return self._SendRequest("delete", "/2/tags" % GANETI_RAPI_VERSION,
-                             query=query)
+    return r.request("delete", "/2/tags", query=query)
 
-def GetInstances(self, bulk=False):
+
+def GetInstances(r, bulk=False):
     """
     Gets information about instances on the cluster.
 
@@ -237,14 +238,13 @@ def GetInstances(self, bulk=False):
     """
 
     if bulk:
-        return self._SendRequest("get", "/2/instances" %
-                                 GANETI_RAPI_VERSION, query={"bulk": 1})
+        return r.request("get", "/2/instances", query={"bulk": 1})
     else:
-        instances = self._SendRequest("get", "/2/instances" %
-                                 GANETI_RAPI_VERSION)
+        instances = r.request("get", "/2/instances")
         return [i["id"] for i in instances]
 
-def GetInstance(self, instance):
+
+def GetInstance(r, instance):
     """
     Gets information about an instance.
 
@@ -255,10 +255,10 @@ def GetInstance(self, instance):
     @return: info about the instance
     """
 
-    return self._SendRequest("get", ("/2/instances/%s" %
-                                     (GANETI_RAPI_VERSION, instance)))
+    return r.request("get", "/2/instances/%s" % instance)
 
-def GetInstanceInfo(self, instance, static=None):
+
+def GetInstanceInfo(r, instance, static=None):
     """
     Gets information about an instance.
 
@@ -269,14 +269,13 @@ def GetInstanceInfo(self, instance, static=None):
     """
 
     if static is None:
-        return self._SendRequest("get", ("/2/instances/%s/info" %
-                                         (GANETI_RAPI_VERSION, instance)))
+        return r.request("get", "/2/instances/%s/info" % instance)
     else:
-        return self._SendRequest("get", ("/2/instances/%s/info" %
-                                         (GANETI_RAPI_VERSION, instance)),
-                                 query={"static": static})
+        return r.request("get", "/2/instances/%s/info" % instance,
+                         query={"static": static})
 
-def CreateInstance(self, mode, name, disk_template, disks, nics,
+
+def CreateInstance(r, mode, name, disk_template, disks, nics,
                    **kwargs):
     """
     Creates a new instance.
@@ -303,7 +302,7 @@ def CreateInstance(self, mode, name, disk_template, disks, nics,
     @return: job id
     """
 
-    if _INST_CREATE_REQV1 not in self.GetFeatures():
+    if _INST_CREATE_REQV1 not in r.GetFeatures():
         raise GanetiApiError("Cannot create Ganeti 2.1-style instances")
 
     query = {}
@@ -331,11 +330,10 @@ def CreateInstance(self, mode, name, disk_template, disks, nics,
     kwargs.pop("dry_run", None)
     body.update(kwargs)
 
-    return self._SendRequest("post", "/2/instances" %
-                             GANETI_RAPI_VERSION, query=query,
-                             content=body)
+    return r.request("post", "/2/instances", query=query, content=body)
 
-def DeleteInstance(self, instance, dry_run=False):
+
+def DeleteInstance(r, instance, dry_run=False):
     """
     Deletes an instance.
 
@@ -346,11 +344,11 @@ def DeleteInstance(self, instance, dry_run=False):
     @return: job id
     """
 
-    return self._SendRequest("delete", ("/2/instances/%s" %
-                                        (GANETI_RAPI_VERSION, instance)),
-                             query={"dry-run": dry_run})
+    return r.request("delete", "/2/instances/%s" % instance,
+                     query={"dry-run": dry_run})
 
-def ModifyInstance(self, instance, **kwargs):
+
+def ModifyInstance(r, instance, **kwargs):
     """
     Modifies an instance.
 
@@ -362,11 +360,11 @@ def ModifyInstance(self, instance, **kwargs):
     @return: job id
     """
 
-    return self._SendRequest("put", ("/2/instances/%s/modify" %
-                                     (GANETI_RAPI_VERSION, instance)),
-                             content=kwargs)
+    return r.request("put", "/2/instances/%s/modify" % instance,
+                     content=kwargs)
 
-def ActivateInstanceDisks(self, instance, ignore_size=False):
+
+def ActivateInstanceDisks(r, instance, ignore_size=False):
     """
     Activates an instance's disks.
 
@@ -377,11 +375,11 @@ def ActivateInstanceDisks(self, instance, ignore_size=False):
     @return: job id
     """
 
-    return self._SendRequest("put", ("/2/instances/%s/activate-disks" %
-                                     (GANETI_RAPI_VERSION, instance)),
-                             query={"ignore_size": ignore_size})
+    return r.request("put", "/2/instances/%s/activate-disks" % instance,
+                     query={"ignore_size": ignore_size})
 
-def DeactivateInstanceDisks(self, instance):
+
+def DeactivateInstanceDisks(r, instance):
     """
     Deactivates an instance's disks.
 
@@ -390,10 +388,10 @@ def DeactivateInstanceDisks(self, instance):
     @return: job id
     """
 
-    return self._SendRequest("put", ("/2/instances/%s/deactivate-disks" %
-                                     (GANETI_RAPI_VERSION, instance)))
+    return r.request("put", "/2/instances/%s/deactivate-disks" % instance)
 
-def RecreateInstanceDisks(self, instance, disks=None, nodes=None):
+
+def RecreateInstanceDisks(r, instance, disks=None, nodes=None):
     """Recreate an instance's disks.
 
     @type instance: string
@@ -413,11 +411,11 @@ def RecreateInstanceDisks(self, instance, disks=None, nodes=None):
     if nodes is not None:
         body["nodes"] = nodes
 
-    return self._SendRequest("post", ("/2/instances/%s/recreate-disks" %
-                                      (GANETI_RAPI_VERSION, instance)),
-                             content=body)
+    return r.request("post", "/2/instances/%s/recreate-disks" % instance,
+                     content=body)
 
-def GrowInstanceDisk(self, instance, disk, amount, wait_for_sync=False):
+
+def GrowInstanceDisk(r, instance, disk, amount, wait_for_sync=False):
     """
     Grows a disk of an instance.
 
@@ -440,11 +438,11 @@ def GrowInstanceDisk(self, instance, disk, amount, wait_for_sync=False):
         "wait_for_sync": wait_for_sync,
     }
 
-    return self._SendRequest("post", ("/2/instances/%s/disk/%s/grow" %
-                                      (GANETI_RAPI_VERSION, instance,
-                                       disk)), content=body)
+    return r.request("post", ("/2/instances/%s/disk/%s/grow" %
+                              (instance, disk)), content=body)
 
-def GetInstanceTags(self, instance):
+
+def GetInstanceTags(r, instance):
     """
     Gets tags for an instance.
 
@@ -455,10 +453,10 @@ def GetInstanceTags(self, instance):
     @return: tags for the instance
     """
 
-    return self._SendRequest("get", ("/2/instances/%s/tags" %
-                                     (GANETI_RAPI_VERSION, instance)))
+    return r.request("get", "/2/instances/%s/tags" % instance)
 
-def AddInstanceTags(self, instance, tags, dry_run=False):
+
+def AddInstanceTags(r, instance, tags, dry_run=False):
     """
     Adds tags to an instance.
 
@@ -478,11 +476,10 @@ def AddInstanceTags(self, instance, tags, dry_run=False):
         "dry-run": dry_run,
     }
 
-    return self._SendRequest("put", ("/2/instances/%s/tags" %
-                                     (GANETI_RAPI_VERSION, instance)),
-                             query=query)
+    return r.request("put", "/2/instances/%s/tags" % instance, query=query)
 
-def DeleteInstanceTags(self, instance, tags, dry_run=False):
+
+def DeleteInstanceTags(r, instance, tags, dry_run=False):
     """
     Deletes tags from an instance.
 
@@ -499,12 +496,11 @@ def DeleteInstanceTags(self, instance, tags, dry_run=False):
         "dry-run": dry_run,
     }
 
-    return self._SendRequest("delete", ("/2/instances/%s/tags" %
-                                        (GANETI_RAPI_VERSION, instance)),
-                             query=query)
+    return r.request("delete", "/2/instances/%s/tags" % instance, query=query)
 
-def RebootInstance(self, instance, reboot_type=None,
-                   ignore_secondaries=False, dry_run=False):
+
+def RebootInstance(r, instance, reboot_type=None, ignore_secondaries=False,
+                   dry_run=False):
     """
     Reboots an instance.
 
@@ -530,11 +526,10 @@ def RebootInstance(self, instance, reboot_type=None,
                                  " 'soft', or 'full'")
         query["type"] = reboot_type
 
-    return self._SendRequest("post", ("/2/instances/%s/reboot" %
-                                      (GANETI_RAPI_VERSION, instance)),
-                             query=query)
+    return r.request("post", "/2/instances/%s/reboot" % instance, query=query)
 
-def ShutdownInstance(self, instance, dry_run=False, no_remember=False,
+
+def ShutdownInstance(r, instance, dry_run=False, no_remember=False,
                      timeout=120):
     """
     Shuts down an instance.
@@ -558,11 +553,11 @@ def ShutdownInstance(self, instance, dry_run=False, no_remember=False,
         "timeout": timeout,
     }
 
-    return self._SendRequest("put", ("/2/instances/%s/shutdown" %
-                                     (GANETI_RAPI_VERSION, instance)),
-                             query=query, content=content)
+    return r.request("put", "/2/instances/%s/shutdown" % instance,
+                     query=query, content=content)
 
-def StartupInstance(self, instance, dry_run=False, no_remember=False):
+
+def StartupInstance(r, instance, dry_run=False, no_remember=False):
     """
     Starts up an instance.
 
@@ -581,12 +576,10 @@ def StartupInstance(self, instance, dry_run=False, no_remember=False):
         "no-remember": no_remember,
     }
 
-    return self._SendRequest("put", ("/2/instances/%s/startup" %
-                                     (GANETI_RAPI_VERSION, instance)),
-                             query=query)
+    return r.request("put", "/2/instances/%s/startup" % instance, query=query)
 
-def ReinstallInstance(self, instance, os=None, no_startup=False,
-                      osparams=None):
+
+def ReinstallInstance(r, instance, os=None, no_startup=False, osparams=None):
     """
     Reinstalls an instance.
 
@@ -599,7 +592,7 @@ def ReinstallInstance(self, instance, os=None, no_startup=False,
     @param no_startup: Whether to start the instance automatically
     """
 
-    if _INST_REINSTALL_REQV1 in self.GetFeatures():
+    if _INST_REINSTALL_REQV1 in r.GetFeatures():
         body = {
             "start": not no_startup,
         }
@@ -607,9 +600,8 @@ def ReinstallInstance(self, instance, os=None, no_startup=False,
             body["os"] = os
         if osparams is not None:
             body["osparams"] = osparams
-        return self._SendRequest("post", ("/2/instances/%s/reinstall" %
-                                          (GANETI_RAPI_VERSION,
-                                           instance)), content=body)
+        return r.request("post", "/2/instances/%s/reinstall" % instance,
+                         content=body)
 
     # Use old request format
     if osparams:
@@ -623,13 +615,12 @@ def ReinstallInstance(self, instance, os=None, no_startup=False,
     if os:
         query["os"] = os
 
-    return self._SendRequest("post", ("/2/instances/%s/reinstall" %
-                                      (GANETI_RAPI_VERSION, instance)),
-                             query=query)
+    return r.request("post", "/2/instances/%s/reinstall" % instance,
+                     query=query)
 
-def ReplaceInstanceDisks(self, instance, disks=None,
-                         mode=REPLACE_DISK_AUTO, remote_node=None,
-                         iallocator=None, dry_run=False):
+
+def ReplaceInstanceDisks(r, instance, disks=None, mode=REPLACE_DISK_AUTO,
+                         remote_node=None, iallocator=None, dry_run=False):
     """
     Replaces disks on an instance.
 
@@ -666,11 +657,11 @@ def ReplaceInstanceDisks(self, instance, disks=None,
     if iallocator:
         query["iallocator"] = iallocator
 
-    return self._SendRequest("post", ("/2/instances/%s/replace-disks" %
-                                      (GANETI_RAPI_VERSION, instance)),
-                             query=query)
+    return r.request("post", "/2/instances/%s/replace-disks" % instance,
+                     query=query)
 
-def PrepareExport(self, instance, mode):
+
+def PrepareExport(r, instance, mode):
     """
     Prepares an instance for an export.
 
@@ -682,11 +673,11 @@ def PrepareExport(self, instance, mode):
     @return: Job ID
     """
 
-    return self._SendRequest("put", ("/2/instances/%s/prepare-export" %
-                                     (GANETI_RAPI_VERSION, instance)),
-                             query={"mode": mode})
+    return r.request("put", "/2/instances/%s/prepare-export" % instance,
+                     query={"mode": mode})
 
-def ExportInstance(self, instance, mode, destination, shutdown=None,
+
+def ExportInstance(r, instance, mode, destination, shutdown=None,
                    remove_instance=None, x509_key_name=None,
                    destination_x509_ca=None):
     """
@@ -717,11 +708,10 @@ def ExportInstance(self, instance, mode, destination, shutdown=None,
     if destination_x509_ca is not None:
         body["destination_x509_ca"] = destination_x509_ca
 
-    return self._SendRequest("put", ("/2/instances/%s/export" %
-                                     (GANETI_RAPI_VERSION, instance)),
-                             content=body)
+    return r.request("put", "/2/instances/%s/export" % instance, content=body)
 
-def MigrateInstance(self, instance, mode=None, cleanup=None):
+
+def MigrateInstance(r, instance, mode=None, cleanup=None):
     """
     Migrates an instance.
 
@@ -741,12 +731,12 @@ def MigrateInstance(self, instance, mode=None, cleanup=None):
     if cleanup is not None:
         body["cleanup"] = cleanup
 
-    return self._SendRequest("put", ("/2/instances/%s/migrate" %
-                                     (GANETI_RAPI_VERSION, instance)),
-                             content=body)
+    return r.request("put", "/2/instances/%s/migrate" % instance,
+                     content=body)
 
-def FailoverInstance(self, instance, iallocator=None,
-                     ignore_consistency=False, target_node=None):
+
+def FailoverInstance(r, instance, iallocator=None, ignore_consistency=False,
+                     target_node=None):
     """Does a failover of an instance.
 
     @type instance: string
@@ -772,12 +762,11 @@ def FailoverInstance(self, instance, iallocator=None,
         body["target_node"] = target_node
 
 
-    return self._SendRequest("put", ("/2/instances/%s/failover" %
-                                     (GANETI_RAPI_VERSION, instance)),
-                             content=body)
+    return r.request("put", "/2/instances/%s/failover" % instance,
+                     content=body)
 
-def RenameInstance(self, instance, new_name, ip_check,
-                   name_check=None):
+
+def RenameInstance(r, instance, new_name, ip_check, name_check=None):
     """
     Changes the name of an instance.
 
@@ -799,11 +788,10 @@ def RenameInstance(self, instance, new_name, ip_check,
     if name_check is not None:
         body["name_check"] = name_check
 
-    return self._SendRequest("put", ("/2/instances/%s/rename" %
-                                     (GANETI_RAPI_VERSION, instance)),
-                             content=body)
+    return r.request("put", "/2/instances/%s/rename" % instance, content=body)
 
-def GetInstanceConsole(self, instance):
+
+def GetInstanceConsole(r, instance):
     """
     Request information for connecting to instance's console.
 
@@ -811,10 +799,10 @@ def GetInstanceConsole(self, instance):
     @param instance: Instance name
     """
 
-    return self._SendRequest("get", ("/2/instances/%s/console" %
-                                     (GANETI_RAPI_VERSION, instance)))
+    return r.request("get", "/2/instances/%s/console" % instance)
 
-def GetJobs(self):
+
+def GetJobs(r):
     """
     Gets all jobs for the cluster.
 
@@ -822,11 +810,12 @@ def GetJobs(self):
     @return: job ids for the cluster
     """
 
-    jobs = self._SendRequest("get", "/2/jobs" % GANETI_RAPI_VERSION)
+    jobs = r.request("get", "/2/jobs")
 
     return [int(job["id"]) for job in jobs]
 
-def GetJobStatus(self, job_id):
+
+def GetJobStatus(r, job_id):
     """
     Gets the status of a job.
 
@@ -837,10 +826,10 @@ def GetJobStatus(self, job_id):
     @return: job status
     """
 
-    return self._SendRequest("get", "/2/jobs/%s" % (GANETI_RAPI_VERSION,
-                                                     job_id))
+    return r.request("get", "/2/jobs/%s" % job_id)
 
-def WaitForJobChange(self, job_id, fields, prev_job_info, prev_log_serial):
+
+def WaitForJobChange(r, job_id, fields, prev_job_info, prev_log_serial):
     """
     Waits for job changes.
 
@@ -854,10 +843,10 @@ def WaitForJobChange(self, job_id, fields, prev_job_info, prev_log_serial):
         "previous_log_serial": prev_log_serial,
     }
 
-    return self._SendRequest("get", "/2/jobs/%s/wait" %
-                             (GANETI_RAPI_VERSION, job_id), content=body)
+    return r.request("get", "/2/jobs/%s/wait" % job_id, content=body)
 
-def CancelJob(self, job_id, dry_run=False):
+
+def CancelJob(r, job_id, dry_run=False):
     """
     Cancels a job.
 
@@ -867,11 +856,11 @@ def CancelJob(self, job_id, dry_run=False):
     @param dry_run: whether to perform a dry run
     """
 
-    return self._SendRequest("delete", "/2/jobs/%s" %
-                             (GANETI_RAPI_VERSION, job_id),
+    return r.request("delete", "/2/jobs/%s" % job_id,
                              query={"dry-run": dry_run})
 
-def GetNodes(self, bulk=False):
+
+def GetNodes(r, bulk=False):
     """
     Gets all nodes in the cluster.
 
@@ -884,14 +873,13 @@ def GetNodes(self, bulk=False):
     """
 
     if bulk:
-        return self._SendRequest("get", "/2/nodes" % GANETI_RAPI_VERSION,
-                                 query={"bulk": 1})
+        return r.request("get", "/2/nodes", query={"bulk": 1})
     else:
-        nodes = self._SendRequest("get", "/2/nodes" %
-                                  GANETI_RAPI_VERSION)
+        nodes = r.request("get", "/2/nodes")
         return [n["id"] for n in nodes]
 
-def GetNode(self, node):
+
+def GetNode(r, node):
     """
     Gets information about a node.
 
@@ -902,12 +890,11 @@ def GetNode(self, node):
     @return: info about the node
     """
 
-    return self._SendRequest("get", "/2/nodes/%s" % (GANETI_RAPI_VERSION,
-                                                      node))
+    return r.request("get", "/2/nodes/%s" % node)
 
-def EvacuateNode(self, node, iallocator=None, remote_node=None,
-                 dry_run=False, early_release=False, mode=None,
-                 accept_old=False):
+
+def EvacuateNode(r, node, iallocator=None, remote_node=None, dry_run=False,
+                 early_release=False, mode=None, accept_old=False):
     """
     Evacuates instances from a Ganeti node.
 
@@ -948,7 +935,7 @@ def EvacuateNode(self, node, iallocator=None, remote_node=None,
     if remote_node:
         query["remote_node"] = remote_node
 
-    if _NODE_EVAC_RES1 in self.GetFeatures():
+    if _NODE_EVAC_RES1 in r.GetFeatures():
         # Server supports body parameters
         body = {
             "early_release": early_release,
@@ -980,11 +967,11 @@ def EvacuateNode(self, node, iallocator=None, remote_node=None,
         if query:
             query["early_release"] = 1
 
-    return self._SendRequest("post", ("/2/nodes/%s/evacuate" %
-                                      (GANETI_RAPI_VERSION, node)),
-                             query=query, content=body)
+    return r.request("post", "/2/nodes/%s/evacuate" % node, query=query,
+                     content=body)
 
-def MigrateNode(self, node, mode=None, dry_run=False, iallocator=None,
+
+def MigrateNode(r, node, mode=None, dry_run=False, iallocator=None,
                 target_node=None):
     """
     Migrates all primary instances from a node.
@@ -1009,7 +996,7 @@ def MigrateNode(self, node, mode=None, dry_run=False, iallocator=None,
         "dry-run": dry_run,
     }
 
-    if _NODE_MIGRATE_REQV1 in self.GetFeatures():
+    if _NODE_MIGRATE_REQV1 in r.GetFeatures():
         body = {}
 
         if mode is not None:
@@ -1030,11 +1017,11 @@ def MigrateNode(self, node, mode=None, dry_run=False, iallocator=None,
         if mode is not None:
             query["mode"] = mode
 
-    return self._SendRequest("post", ("/2/nodes/%s/migrate" %
-                                      (GANETI_RAPI_VERSION, node)),
-                             query=query, content=body)
+    return r.request("post", "/2/nodes/%s/migrate" % node, query=query,
+                     content=body)
 
-def GetNodeRole(self, node):
+
+def GetNodeRole(r, node):
     """
     Gets the current role for a node.
 
@@ -1045,10 +1032,10 @@ def GetNodeRole(self, node):
     @return: the current role for a node
     """
 
-    return self._SendRequest("get", ("/2/nodes/%s/role" %
-                                     (GANETI_RAPI_VERSION, node)))
+    return r.request("get", "/2/nodes/%s/role" % node)
 
-def SetNodeRole(self, node, role, force=False, auto_promote=False):
+
+def SetNodeRole(r, node, role, force=False, auto_promote=False):
     """
     Sets the role for a node.
 
@@ -1071,11 +1058,11 @@ def SetNodeRole(self, node, role, force=False, auto_promote=False):
         "auto_promote": auto_promote,
     }
 
-    return self._SendRequest("put", ("/2/nodes/%s/role" %
-                                     (GANETI_RAPI_VERSION, node)),
-                             query=query, content=role)
+    return r.request("put", "/2/nodes/%s/role" % node, query=query,
+                     content=role)
 
-def PowercycleNode(self, node, force=False):
+
+def PowercycleNode(r, node, force=False):
     """
     Powercycles a node.
 
@@ -1091,11 +1078,10 @@ def PowercycleNode(self, node, force=False):
         "force": force,
     }
 
-    return self._SendRequest("post", ("/2/nodes/%s/powercycle" %
-                                      (GANETI_RAPI_VERSION, node)),
-                             query=query)
+    return r.request("post", "/2/nodes/%s/powercycle" % node, query=query)
 
-def ModifyNode(self, node, **kwargs):
+
+def ModifyNode(r, node, **kwargs):
     """
     Modifies a node.
 
@@ -1107,11 +1093,10 @@ def ModifyNode(self, node, **kwargs):
     @return: job id
     """
 
-    return self._SendRequest("post", ("/2/nodes/%s/modify" %
-                                      (GANETI_RAPI_VERSION, node)),
-                             content=kwargs)
+    return r.request("post", "/2/nodes/%s/modify" % node, content=kwargs)
 
-def GetNodeStorageUnits(self, node, storage_type, output_fields):
+
+def GetNodeStorageUnits(r, node, storage_type, output_fields):
     """
     Gets the storage units for a node.
 
@@ -1131,12 +1116,10 @@ def GetNodeStorageUnits(self, node, storage_type, output_fields):
         "output_fields": output_fields,
     }
 
-    return self._SendRequest("get", ("/2/nodes/%s/storage" %
-                                     (GANETI_RAPI_VERSION, node)),
-                             query=query)
+    return r.request("get", "/2/nodes/%s/storage" % node, query=query)
 
-def ModifyNodeStorageUnits(self, node, storage_type, name,
-                           allocatable=None):
+
+def ModifyNodeStorageUnits(r, node, storage_type, name, allocatable=None):
     """
     Modifies parameters of storage units on the node.
 
@@ -1162,11 +1145,10 @@ def ModifyNodeStorageUnits(self, node, storage_type, name,
     if allocatable is not None:
         query["allocatable"] = allocatable
 
-    return self._SendRequest("put", ("/2/nodes/%s/storage/modify" %
-                                     (GANETI_RAPI_VERSION, node)),
-                             query=query)
+    return r.request("put", "/2/nodes/%s/storage/modify" % node, query=query)
 
-def RepairNodeStorageUnits(self, node, storage_type, name):
+
+def RepairNodeStorageUnits(r, node, storage_type, name):
     """
     Repairs a storage unit on the node.
 
@@ -1186,11 +1168,10 @@ def RepairNodeStorageUnits(self, node, storage_type, name):
         "name": name,
     }
 
-    return self._SendRequest("put", ("/2/nodes/%s/storage/repair" %
-                                     (GANETI_RAPI_VERSION, node)),
-                             query=query)
+    return r.request("put", "/2/nodes/%s/storage/repair" % node, query=query)
 
-def GetNodeTags(self, node):
+
+def GetNodeTags(r, node):
     """
     Gets the tags for a node.
 
@@ -1201,10 +1182,10 @@ def GetNodeTags(self, node):
     @return: tags for the node
     """
 
-    return self._SendRequest("get", ("/2/nodes/%s/tags" %
-                                     (GANETI_RAPI_VERSION, node)))
+    return r.request("get", "/2/nodes/%s/tags" % node)
 
-def AddNodeTags(self, node, tags, dry_run=False):
+
+def AddNodeTags(r, node, tags, dry_run=False):
     """
     Adds tags to a node.
 
@@ -1224,11 +1205,11 @@ def AddNodeTags(self, node, tags, dry_run=False):
         "dry-run": dry_run,
     }
 
-    return self._SendRequest("put", ("/2/nodes/%s/tags" %
-                                     (GANETI_RAPI_VERSION, node)),
-                             query=query, content=tags)
+    return r.request("put", "/2/nodes/%s/tags" % node, query=query,
+                     content=tags)
 
-def DeleteNodeTags(self, node, tags, dry_run=False):
+
+def DeleteNodeTags(r, node, tags, dry_run=False):
     """
     Delete tags from a node.
 
@@ -1248,11 +1229,10 @@ def DeleteNodeTags(self, node, tags, dry_run=False):
         "dry-run": dry_run,
     }
 
-    return self._SendRequest("delete", ("/2/nodes/%s/tags" %
-                                        (GANETI_RAPI_VERSION, node)),
-                             query=query)
+    return r.request("delete", "/2/nodes/%s/tags" % node, query=query)
 
-def GetGroups(self, bulk=False):
+
+def GetGroups(r, bulk=False):
     """
     Gets all node groups in the cluster.
 
@@ -1265,14 +1245,13 @@ def GetGroups(self, bulk=False):
     """
 
     if bulk:
-        return self._SendRequest("get", "/2/groups" %
-                                 GANETI_RAPI_VERSION, query={"bulk": 1})
+        return r.request("get", "/2/groups", query={"bulk": 1})
     else:
-        groups = self._SendRequest("get", "/2/groups" %
-                                   GANETI_RAPI_VERSION)
+        groups = r.request("get", "/2/groups")
         return [g["name"] for g in groups]
 
-def GetGroup(self, group):
+
+def GetGroup(r, group):
     """
     Gets information about a node group.
 
@@ -1283,10 +1262,10 @@ def GetGroup(self, group):
     @return: info about the node group
     """
 
-    return self._SendRequest("get", "/2/groups/%s" %
-                             (GANETI_RAPI_VERSION, group))
+    return r.request("get", "/2/groups/%s" % group)
 
-def CreateGroup(self, name, alloc_policy=None, dry_run=False):
+
+def CreateGroup(r, name, alloc_policy=None, dry_run=False):
     """
     Creates a new node group.
 
@@ -1310,10 +1289,10 @@ def CreateGroup(self, name, alloc_policy=None, dry_run=False):
         "alloc_policy": alloc_policy
     }
 
-    return self._SendRequest("post", "/2/groups" % GANETI_RAPI_VERSION,
-                             query=query, content=body)
+    return r.request("post", "/2/groups", query=query, content=body)
 
-def ModifyGroup(self, group, **kwargs):
+
+def ModifyGroup(r, group, **kwargs):
     """
     Modifies a node group.
 
@@ -1325,11 +1304,10 @@ def ModifyGroup(self, group, **kwargs):
     @return: job id
     """
 
-    return self._SendRequest("put", ("/2/groups/%s/modify" %
-                                     (GANETI_RAPI_VERSION, group)),
-                             content=kwargs)
+    return r.request("put", "/2/groups/%s/modify" % group, content=kwargs)
 
-def DeleteGroup(self, group, dry_run=False):
+
+def DeleteGroup(r, group, dry_run=False):
     """
     Deletes a node group.
 
@@ -1346,11 +1324,10 @@ def DeleteGroup(self, group, dry_run=False):
         "dry-run": dry_run,
     }
 
-    return self._SendRequest("delete", ("/2/groups/%s" %
-                                        (GANETI_RAPI_VERSION, group)),
-                             query=query)
+    return r.request("delete", "/2/groups/%s" % group, query=query)
 
-def RenameGroup(self, group, new_name):
+
+def RenameGroup(r, group, new_name):
     """
     Changes the name of a node group.
 
@@ -1367,12 +1344,11 @@ def RenameGroup(self, group, new_name):
         "new_name": new_name,
     }
 
-    return self._SendRequest("put", ("/2/groups/%s/rename" %
-                                     (GANETI_RAPI_VERSION, group)),
-                             content=body)
+    return r.request("put", "/2/groups/%s/rename" % group, content=body)
 
 
-def AssignGroupNodes(self, group, nodes, force=False, dry_run=False):
+
+def AssignGroupNodes(r, group, nodes, force=False, dry_run=False):
     """
     Assigns nodes to a group.
 
@@ -1395,11 +1371,11 @@ def AssignGroupNodes(self, group, nodes, force=False, dry_run=False):
         "nodes": nodes,
     }
 
-    return self._SendRequest("put", ("/2/groups/%s/assign-nodes" %
-                                     (GANETI_RAPI_VERSION, group)),
-                             query=query, content=body)
+    return r.request("put", "/2/groups/%s/assign-nodes" % group, query=query,
+                     content=body)
 
-def GetGroupTags(self, group):
+
+def GetGroupTags(r, group):
     """
     Gets tags for a node group.
 
@@ -1410,10 +1386,10 @@ def GetGroupTags(self, group):
     @return: tags for the group
     """
 
-    return self._SendRequest("get", ("/2/groups/%s/tags" %
-                                     (GANETI_RAPI_VERSION, group)))
+    return r.request("get", "/2/groups/%s/tags" % group)
 
-def AddGroupTags(self, group, tags, dry_run=False):
+
+def AddGroupTags(r, group, tags, dry_run=False):
     """
     Adds tags to a node group.
 
@@ -1433,11 +1409,10 @@ def AddGroupTags(self, group, tags, dry_run=False):
         "tag": tags,
     }
 
-    return self._SendRequest("put", ("/2/groups/%s/tags" %
-                                     (GANETI_RAPI_VERSION, group)),
-                             query=query)
+    return r.request("put", "/2/groups/%s/tags" % group, query=query)
 
-def DeleteGroupTags(self, group, tags, dry_run=False):
+
+def DeleteGroupTags(r, group, tags, dry_run=False):
     """
     Deletes tags from a node group.
 
@@ -1456,11 +1431,10 @@ def DeleteGroupTags(self, group, tags, dry_run=False):
         "tag": tags,
     }
 
-    return self._SendRequest("delete", ("/2/groups/%s/tags" %
-                                        (GANETI_RAPI_VERSION, group)),
-                             query=query)
+    return r.request("delete", "/2/groups/%s/tags" % group, query=query)
 
-def Query(self, what, fields, qfilter=None):
+
+def Query(r, what, fields, qfilter=None):
     """
     Retrieves information about resources.
 
@@ -1482,11 +1456,10 @@ def Query(self, what, fields, qfilter=None):
     if qfilter is not None:
         body["qfilter"] = body["filter"] = qfilter
 
-    return self._SendRequest("put", ("/2/query/%s" %
-                                     (GANETI_RAPI_VERSION, what)),
-                             content=body)
+    return r.request("put", "/2/query/%s" % what, content=body)
 
-def QueryFields(self, what, fields=None):
+
+def QueryFields(r, what, fields=None):
     """
     Retrieves available fields for a resource.
 
@@ -1504,6 +1477,4 @@ def QueryFields(self, what, fields=None):
     if fields is not None:
         query["fields"] = ",".join(fields)
 
-    return self._SendRequest("get", ("/2/query/%s/fields" %
-                                     (GANETI_RAPI_VERSION, what)),
-                             query=query)
+    return r.request("get", "/2/query/%s/fields" % what, query=query)
