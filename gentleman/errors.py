@@ -16,9 +16,14 @@ class CertificateError(GentleError):
 
 class GanetiApiError(GentleError):
     """
-    The response from the RAPI was not OK.
+    There was some sort of problem with the RAPI.
+    """
+
+class NotOkayError(GanetiApiError):
+    """
+    Specifically, we received a response from the RAPI that is not okay.
     """
 
     def __init__(self, code=None, *args, **kwargs):
-        super(GanetiApiError, self).__init__(*args, **kwargs)
+        super(NotOkayError, self).__init__(*args, **kwargs)
         self.code = code

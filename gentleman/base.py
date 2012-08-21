@@ -65,42 +65,6 @@ _INST_REINSTALL_REQV1 = INST_REINSTALL_REQV1
 _NODE_MIGRATE_REQV1 = NODE_MIGRATE_REQV1
 _NODE_EVAC_RES1 = NODE_EVAC_RES1
 
-_headers = {
-    "accept": "application/json",
-    "content-type": "application/json",
-    "user-agent": "Ganeti RAPI Client",
-}
-
-
-def GetVersion(r):
-    """
-    Gets the Remote API version running on the cluster.
-
-    @rtype: int
-    @return: Ganeti Remote API version
-    """
-
-    return r.request("get", "/version")
-
-
-def GetFeatures(r):
-    """
-    Gets the list of optional features supported by RAPI server.
-
-    @rtype: list
-    @return: List of optional features
-    """
-
-    try:
-        return r.request("get", "/2/features")
-    except GanetiApiError, err:
-        # Older RAPI servers don't support this resource. Just return an
-        # empty list.
-        if err.code == 404:
-            return []
-        else:
-            raise
-
 
 def GetOperatingSystems(r):
     """

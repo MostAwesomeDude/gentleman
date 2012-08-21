@@ -4,18 +4,19 @@ Base functionality for the Ganeti RAPI, client-side.
 This module provides combinators which are used to provide a full RAPI client.
 """
 
+import logging
 import simplejson as json
 import socket
 
 import requests
 
-from gentleman.errors import ClientError, GanetiApiError
+from gentleman.errors import ClientError, GanetiApiError, NotOkayError
 from gentleman.helpers import prepare_query
 
 headers = {
     "accept": "application/json",
     "content-type": "application/json",
-    "user-agent": "Ganeti RAPI Client",
+    "user-agent": "Ganeti RAPI Client (Requests)",
 }
 
 
@@ -25,6 +26,9 @@ class RequestsRapiClient(object):
     """
 
     _json_encoder = json.JSONEncoder(sort_keys=True)
+
+    version = None
+    features = []
 
     def __init__(self, host, port=5080, username=None, password=None,
                  timeout=60):
@@ -113,9 +117,37 @@ class RequestsRapiClient(object):
                                  self._base_url)
 
         if r.status_code != requests.codes.ok:
-            raise GanetiApiError(str(r.status_code), code=r.status_code)
+            raise NotOkayError(str(r.status_code), code=r.status_code)
 
         if r.content:
             return json.loads(r.content)
         else:
             return None
+
+    def start(self):
+        """
+        Confirm that we may access the target cluster.
+        """
+
+        version = self.request("/version")
+
+        if version != 2:
+            raise GanetiApiError("Can't work with Ganeti RAPI version %d" %
+                                 version)
+
+        logging.log("Accessing Ganeti RAPI, version %d" % version)
+        self.version = version
+
+        try:
+            features = self.request("/2/features")
+        except NotOkayError, noe:
+            if noe.code == 404:
+                # Okay, let's calm down, this is totally reasonable. Certain
+                # older Ganeti RAPIs don't have a list of features.
+                features = []
+            else:
+                # No, wait, panic was the correct thing to do.
+                raise
+
+        logging.log("RAPI features: %r" % (features,))
+        self.features = features

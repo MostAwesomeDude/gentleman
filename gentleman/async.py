@@ -7,20 +7,20 @@ This module provides combinators which are used to provide a full RAPI client.
 import simplejson as json
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.error import ConnectionRefusedError
 from twisted.internet.protocol import Protocol
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
 from twisted.python import log
 
-from gentleman.errors import ClientError, GanetiApiError
+from gentleman.errors import ClientError, GanetiApiError, NotOkayError
 from gentleman.helpers import prepare_query
 
 headers = Headers({
     "accept": ["application/json"],
     "content-type": ["application/json"],
-    "user-agent": ["Ganeti RAPI Client"],
+    "user-agent": ["Ganeti RAPI Client (Twisted)"],
 })
 
 
@@ -48,6 +48,9 @@ class TwistedRapiClient(object):
     """
 
     _json_encoder = json.JSONEncoder(sort_keys=True)
+
+    version = None
+    features = []
 
     def __init__(self, host, port=5080, username=None, password=None,
                  timeout=60):
@@ -133,6 +136,40 @@ class TwistedRapiClient(object):
 
         @d.addCallback
         def cb(response):
+            if response.code != 200:
+                raise NotOkayError(code=response.code)
             response.deliverBody(protocol)
 
         return protocol.d
+
+    @inlineCallbacks
+    def _start(self):
+        """
+        Confirm that we may access the target cluster.
+        """
+
+        version = yield self.request("/version")
+
+        if version != 2:
+            raise GanetiApiError("Can't work with Ganeti RAPI version %d" %
+                                 version)
+
+        log.msg("Accessing Ganeti RAPI, version %d" % version)
+        self.version = version
+
+        try:
+            features = yield self.request("/2/features")
+        except NotOkayError, noe:
+            if noe.code == 404:
+                # Okay, let's calm down, this is totally reasonable. Certain
+                # older Ganeti RAPIs don't have a list of features.
+                features = []
+            else:
+                # No, wait, panic was the correct thing to do.
+                raise
+
+        log.msg("RAPI features: %r" % (features,))
+        self.features = features
+
+    def start(self):
+        return self._start()
