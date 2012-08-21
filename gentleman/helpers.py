@@ -2,6 +2,8 @@
 Some utility units.
 """
 
+from operator import itemgetter
+
 def prepare_query(query):
     """
     Prepare a query object for the RAPI.
@@ -29,3 +31,17 @@ def prepare_query(query):
         elif isinstance(value, dict):
             raise ValueError("Invalid query data type %r" %
                              type(value).__name__)
+
+def itemgetters(*args):
+    """
+    Get a handful of items from an iterable.
+
+    This is just map(itemgetter(...), iterable) with a list comprehension.
+    """
+
+    f = itemgetter(*args)
+
+    def inner(l):
+        return [f(x) for x in l]
+
+    return inner
