@@ -27,3 +27,9 @@ class NotOkayError(GanetiApiError):
     def __init__(self, code=None, *args, **kwargs):
         super(NotOkayError, self).__init__(*args, **kwargs)
         self.code = code
+
+
+class ClientError(GentleError):
+    """
+    There was a problem with the client.
+    """
