@@ -129,17 +129,17 @@ class RequestsRapiClient(object):
         Confirm that we may access the target cluster.
         """
 
-        version = self.request("/version")
+        version = self.request("get", "/version")
 
         if version != 2:
             raise GanetiApiError("Can't work with Ganeti RAPI version %d" %
                                  version)
 
-        logging.log("Accessing Ganeti RAPI, version %d" % version)
+        logging.info("Accessing Ganeti RAPI, version %d" % version)
         self.version = version
 
         try:
-            features = self.request("/2/features")
+            features = self.request("get", "/2/features")
         except NotOkayError, noe:
             if noe.code == 404:
                 # Okay, let's calm down, this is totally reasonable. Certain
@@ -149,5 +149,5 @@ class RequestsRapiClient(object):
                 # No, wait, panic was the correct thing to do.
                 raise
 
-        logging.log("RAPI features: %r" % (features,))
+        logging.info("RAPI features: %r" % (features,))
         self.features = features

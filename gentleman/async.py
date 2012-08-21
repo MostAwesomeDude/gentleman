@@ -148,7 +148,7 @@ class TwistedRapiClient(object):
         Confirm that we may access the target cluster.
         """
 
-        version = yield self.request("/version")
+        version = yield self.request("get", "/version")
 
         if version != 2:
             raise GanetiApiError("Can't work with Ganeti RAPI version %d" %
@@ -158,7 +158,7 @@ class TwistedRapiClient(object):
         self.version = version
 
         try:
-            features = yield self.request("/2/features")
+            features = yield self.request("get", "/2/features")
         except NotOkayError, noe:
             if noe.code == 404:
                 # Okay, let's calm down, this is totally reasonable. Certain
