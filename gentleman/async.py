@@ -80,6 +80,7 @@ class TwistedRapiClient(object):
 
         self._base_url = "https://%s:%d" % (host, port)
 
+
     def request(self, method, path, query=None, content=None):
         """
         Sends an HTTP request.
@@ -142,6 +143,13 @@ class TwistedRapiClient(object):
 
         return protocol.d
 
+
+    @staticmethod
+    def applier(f, d):
+        d.addCallback(f)
+        return d
+
+
     @inlineCallbacks
     def _start(self):
         """
@@ -170,6 +178,7 @@ class TwistedRapiClient(object):
 
         log.msg("RAPI features: %r" % (features,))
         self.features = features
+
 
     def start(self):
         return self._start()

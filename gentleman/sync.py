@@ -124,6 +124,12 @@ class RequestsRapiClient(object):
         else:
             return None
 
+
+    @staticmethod
+    def applier(f, a):
+        return f(a)
+
+
     def start(self):
         """
         Confirm that we may access the target cluster.

@@ -176,7 +176,11 @@ def GetInstances(r, bulk=False):
         return r.request("get", "/2/instances", query={"bulk": 1})
     else:
         instances = r.request("get", "/2/instances")
-        return [i["id"] for i in instances]
+
+        def f(l):
+            return [i["id"] for i in l]
+
+        return r.applier(f, instances)
 
 
 def GetInstance(r, instance):
