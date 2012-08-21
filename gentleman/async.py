@@ -5,6 +5,7 @@ This module provides combinators which are used to provide a full RAPI client.
 """
 
 import simplejson as json
+from urllib import urlencode
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks
@@ -117,11 +118,12 @@ class TwistedRapiClient(object):
         if content is not None:
             kwargs["data"] = self._json_encoder.encode(content)
 
+        url = self._base_url + path
+
         if query:
             prepare_query(query)
-            kwargs["params"] = query
-
-        url = self._base_url + path
+            params = urlencode(query, doseq=True)
+            url += "?%s" % params
 
         log.msg("Sending request to %s %s" % (url, kwargs))
 
