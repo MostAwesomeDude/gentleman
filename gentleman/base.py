@@ -5,6 +5,7 @@ This module provides combinators which are used to provide a full RAPI client.
 """
 
 from gentleman.errors import GanetiApiError
+from gentleman.helpers import itemgetters
 
 REPLACE_DISK_PRI = "replace_on_primary"
 REPLACE_DISK_SECONDARY = "replace_on_secondary"
@@ -177,10 +178,7 @@ def GetInstances(r, bulk=False):
     else:
         instances = r.request("get", "/2/instances")
 
-        def f(l):
-            return [i["id"] for i in l]
-
-        return r.applier(f, instances)
+        return r.applier(itemgetters("id"), instances)
 
 
 def GetInstance(r, instance):
@@ -750,8 +748,7 @@ def GetJobs(r):
     """
 
     jobs = r.request("get", "/2/jobs")
-
-    return [int(job["id"]) for job in jobs]
+    return r.applier(itemgetters("id"), jobs)
 
 
 def GetJobStatus(r, job_id):
@@ -815,7 +812,7 @@ def GetNodes(r, bulk=False):
         return r.request("get", "/2/nodes", query={"bulk": 1})
     else:
         nodes = r.request("get", "/2/nodes")
-        return [n["id"] for n in nodes]
+        return r.applier(itemgetters("id"), nodes)
 
 
 def GetNode(r, node):
@@ -1187,7 +1184,7 @@ def GetGroups(r, bulk=False):
         return r.request("get", "/2/groups", query={"bulk": 1})
     else:
         groups = r.request("get", "/2/groups")
-        return [g["name"] for g in groups]
+        return r.applier(itemgetters("name"), groups)
 
 
 def GetGroup(r, group):
