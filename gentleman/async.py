@@ -194,7 +194,7 @@ class TwistedRapiClient(object):
 
 
     @inlineCallbacks
-    def _start(self):
+    def start(self):
         """
         Confirm that we may access the target cluster.
         """
@@ -221,7 +221,3 @@ class TwistedRapiClient(object):
 
         log.msg("RAPI features: %r" % (features,))
         self.features = features
-
-
-    def start(self):
-        return self._start()
