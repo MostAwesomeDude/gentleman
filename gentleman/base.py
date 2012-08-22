@@ -177,7 +177,6 @@ def GetInstances(r, bulk=False):
         return r.request("get", "/2/instances", query={"bulk": 1})
     else:
         instances = r.request("get", "/2/instances")
-
         return r.applier(itemgetters("id"), instances)
 
 
@@ -375,8 +374,8 @@ def GrowInstanceDisk(r, instance, disk, amount, wait_for_sync=False):
         "wait_for_sync": wait_for_sync,
     }
 
-    return r.request("post", ("/2/instances/%s/disk/%s/grow" %
-                              (instance, disk)), content=body)
+    return r.request("post", "/2/instances/%s/disk/%s/grow" %
+                             (instance, disk), content=body)
 
 
 def GetInstanceTags(r, instance):
