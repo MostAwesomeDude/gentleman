@@ -22,7 +22,7 @@ Import a client of your choice, and then do some work with it.
 There's also a Twisted client. An example with Twisted's shell:
 
     >>> from gentleman.async import *
-    >>> c = TwistedRapiClient("33.33.33.10")
+    >>> c = TwistedRapiClient("your.ganeti.cluster")
     >>> c.start()
     <Deferred #0>
     Deferred #0 called back: None
