@@ -13,7 +13,7 @@ from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.error import ConnectionRefusedError
 from twisted.internet.protocol import Protocol
 from twisted.python import log
-from twisted.web.client import Agent
+from twisted.web.client import Agent, HTTPConnectionPool
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IBodyProducer
 from zope.interface import implements
@@ -101,7 +101,8 @@ class TwistedRapiClient(object):
             encoded = b64encode("%s:%s" % (username, password))
             self.headers.addRawHeader("Authorization", "Basic %s" % encoded)
 
-        self._agent = Agent(reactor, connectTimeout=timeout)
+        pool = HTTPConnectionPool(reactor, persistent=True)
+        self._agent = Agent(reactor, connectTimeout=timeout, pool=pool)
 
         self._base_url = "https://%s:%d" % (host, port)
 
