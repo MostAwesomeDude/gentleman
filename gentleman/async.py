@@ -4,6 +4,7 @@ Base functionality for the Ganeti RAPI, client-side.
 This module provides combinators which are used to provide a full RAPI client.
 """
 
+from base64 import b64encode
 import simplejson as json
 from urllib import urlencode
 
@@ -20,7 +21,7 @@ from zope.interface import implements
 from gentleman.errors import ClientError, GanetiApiError, NotOkayError
 from gentleman.helpers import prepare_query
 
-headers = Headers({
+_headers = Headers({
     "accept": ["application/json"],
     "content-type": ["application/json"],
     "user-agent": ["Ganeti RAPI Client (Twisted)"],
@@ -94,10 +95,13 @@ class TwistedRapiClient(object):
         elif password is not None and username is None:
             raise ClientError("Specified password without username")
 
-        self._agent = Agent(reactor, connectTimeout=timeout)
+        self.headers = _headers.copy()
 
-        self.username = username
-        self.password = password
+        if username and password:
+            encoded = b64encode("%s:%s" % (username, password))
+            self.headers.addRawHeader("Authorization", "Basic %s" % encoded)
+
+        self._agent = Agent(reactor, connectTimeout=timeout)
 
         self._base_url = "https://%s:%d" % (host, port)
 
@@ -132,9 +136,6 @@ class TwistedRapiClient(object):
             "verify": False,
         }
 
-        if self.username and self.password:
-            kwargs["auth"] = self.username, self.password
-
         body = None
 
         if content is not None:
@@ -148,9 +149,9 @@ class TwistedRapiClient(object):
             params = urlencode(query, doseq=True)
             url += "?%s" % params
 
-        log.msg("Sending request to %s %s" % (url, kwargs))
+        log.msg("Sending request to %s %s %s" % (url, self.headers, body))
 
-        d = self._agent.request(method, url, headers=headers,
+        d = self._agent.request(method, url, headers=self.headers,
                                 bodyProducer=body)
 
         protocol = JsonResponseProtocol()
