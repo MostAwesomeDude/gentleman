@@ -103,7 +103,6 @@ class TwistedRapiClient(object):
         @param username: the username to connect with
         @type password: string
         @param password: the password to connect with
-        @param logger: Logging object
         """
 
         if username is not None and password is None:
@@ -166,7 +165,8 @@ class TwistedRapiClient(object):
             params = urlencode(query, doseq=True)
             url += "?%s" % params
 
-        log.msg("Sending request to %s %s %s" % (url, self.headers, body))
+        log.msg("Sending request to %s %s %s" % (url, self.headers, body),
+                system="Gentleman")
 
         d = self._agent.request(method, url, headers=self.headers,
                                 bodyProducer=body)
@@ -205,7 +205,8 @@ class TwistedRapiClient(object):
             raise GanetiApiError("Can't work with Ganeti RAPI version %d" %
                                  version)
 
-        log.msg("Accessing Ganeti RAPI, version %d" % version)
+        log.msg("Accessing Ganeti RAPI, version %d" % version,
+                system="Gentleman")
         self.version = version
 
         try:
@@ -219,5 +220,5 @@ class TwistedRapiClient(object):
                 # No, wait, panic was the correct thing to do.
                 raise
 
-        log.msg("RAPI features: %r" % (features,))
+        log.msg("RAPI features: %r" % (features,), system="Gentleman")
         self.features = features
