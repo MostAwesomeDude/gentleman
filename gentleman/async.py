@@ -8,12 +8,14 @@ import simplejson as json
 from urllib import urlencode
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.error import ConnectionRefusedError
 from twisted.internet.protocol import Protocol
+from twisted.python import log
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
-from twisted.python import log
+from twisted.web.iweb import IBodyProducer
+from zope.interface import implements
 
 from gentleman.errors import ClientError, GanetiApiError, NotOkayError
 from gentleman.helpers import prepare_query
@@ -23,6 +25,24 @@ headers = Headers({
     "content-type": ["application/json"],
     "user-agent": ["Ganeti RAPI Client (Twisted)"],
 })
+
+
+class StringProducer(object):
+    implements(IBodyProducer)
+
+    def __init__(self, body):
+        self.body = body
+        self.length = len(body)
+
+    def startProducing(self, consumer):
+        consumer.write(self.body)
+        return succeed(None)
+
+    def pauseProducing(self):
+        pass
+
+    def stopProducing(self):
+        pass
 
 
 class JsonResponseProtocol(Protocol):
@@ -115,8 +135,11 @@ class TwistedRapiClient(object):
         if self.username and self.password:
             kwargs["auth"] = self.username, self.password
 
+        body = None
+
         if content is not None:
-            kwargs["data"] = self._json_encoder.encode(content)
+            data = self._json_encoder.encode(content)
+            body = StringProducer(data)
 
         url = self._base_url + path
 
@@ -128,7 +151,7 @@ class TwistedRapiClient(object):
         log.msg("Sending request to %s %s" % (url, kwargs))
 
         d = self._agent.request(method, url, headers=headers,
-                                bodyProducer=None)
+                                bodyProducer=body)
 
         protocol = JsonResponseProtocol()
 
