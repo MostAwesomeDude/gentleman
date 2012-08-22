@@ -9,7 +9,8 @@ import simplejson as json
 from urllib import urlencode
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, inlineCallbacks, succeed
+from twisted.internet.defer import (Deferred, DeferredList, inlineCallbacks,
+                                    succeed)
 from twisted.internet.error import ConnectionRefusedError
 from twisted.internet.protocol import Protocol
 from twisted.python import log
@@ -48,9 +49,24 @@ class StringProducer(object):
 
 class JsonResponseProtocol(Protocol):
 
-    def __init__(self):
-        self.d = Deferred()
+    def __init__(self, d):
+        self._upstream = d
+        self._finished = Deferred()
         self.buf = []
+
+    def getData(self):
+        dl = DeferredList([self._finished, self._upstream],
+                          fireOnOneErrback=True)
+
+        @dl.addCallback
+        def cb(l):
+            return l[0][1]
+
+        @dl.addErrback
+        def eb(fail):
+            return fail.value.subFailure
+
+        return dl
 
     def dataReceived(self, data):
         self.buf.append(data)
@@ -59,9 +75,9 @@ class JsonResponseProtocol(Protocol):
         try:
             data = json.loads("".join(self.buf))
         except Exception, e:
-            self.d.errback(e)
+            self._finished.errback(e)
         else:
-            self.d.callback(data)
+            self._finished.callback(data)
 
 
 class TwistedRapiClient(object):
@@ -155,7 +171,7 @@ class TwistedRapiClient(object):
         d = self._agent.request(method, url, headers=self.headers,
                                 bodyProducer=body)
 
-        protocol = JsonResponseProtocol()
+        protocol = JsonResponseProtocol(d)
 
         @d.addErrback
         def connectionFailed(failure):
@@ -168,7 +184,7 @@ class TwistedRapiClient(object):
                 raise NotOkayError(code=response.code)
             response.deliverBody(protocol)
 
-        return protocol.d
+        return protocol.getData()
 
 
     @staticmethod
