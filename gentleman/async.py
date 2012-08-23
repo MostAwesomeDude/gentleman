@@ -148,10 +148,6 @@ class TwistedRapiClient(object):
             raise ClientError("Implementation error: Called with bad path %s"
                               % path)
 
-        kwargs = {
-            "verify": False,
-        }
-
         body = None
 
         if content is not None:
