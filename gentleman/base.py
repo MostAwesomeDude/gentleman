@@ -11,6 +11,8 @@ REPLACE_DISK_PRI = "replace_on_primary"
 REPLACE_DISK_SECONDARY = "replace_on_secondary"
 REPLACE_DISK_CHG = "replace_new_secondary"
 REPLACE_DISK_AUTO = "replace_auto"
+REPLACE_DISK = frozenset([REPLACE_DISK_PRI, REPLACE_DISK_SECONDARY,
+                          REPLACE_DISK_CHG, REPLACE_DISK_AUTO])
 
 NODE_EVAC_PRI = "primary-only"
 NODE_EVAC_SEC = "secondary-only"
@@ -41,30 +43,15 @@ JOB_STATUS_ALL = frozenset([
   JOB_STATUS_RUNNING,
   ]) | JOB_STATUS_FINALIZED
 
-# Legacy name
-JOB_STATUS_WAITLOCK = JOB_STATUS_WAITING
-
 # Internal constants
 _REQ_DATA_VERSION_FIELD = "__version__"
 _INST_NIC_PARAMS = frozenset(["mac", "ip", "mode", "link"])
-_INST_CREATE_V0_DISK_PARAMS = frozenset(["size"])
-_INST_CREATE_V0_PARAMS = frozenset([
-    "os", "pnode", "snode", "iallocator", "start", "ip_check", "name_check",
-    "hypervisor", "file_storage_dir", "file_driver", "dry_run",
-])
-_INST_CREATE_V0_DPARAMS = frozenset(["beparams", "hvparams"])
 
 # Feature strings
 INST_CREATE_REQV1 = "instance-create-reqv1"
 INST_REINSTALL_REQV1 = "instance-reinstall-reqv1"
 NODE_MIGRATE_REQV1 = "node-migrate-reqv1"
 NODE_EVAC_RES1 = "node-evac-res1"
-
-# Old feature constant names in case they're references by users of this module
-_INST_CREATE_REQV1 = INST_CREATE_REQV1
-_INST_REINSTALL_REQV1 = INST_REINSTALL_REQV1
-_NODE_MIGRATE_REQV1 = NODE_MIGRATE_REQV1
-_NODE_EVAC_RES1 = NODE_EVAC_RES1
 
 
 def GetOperatingSystems(r):
@@ -238,7 +225,7 @@ def CreateInstance(r, mode, name, disk_template, disks, nics,
     @return: job id
     """
 
-    if _INST_CREATE_REQV1 not in r.GetFeatures():
+    if INST_CREATE_REQV1 not in r.features:
         raise GanetiApiError("Cannot create Ganeti 2.1-style instances")
 
     query = {}
@@ -528,7 +515,7 @@ def ReinstallInstance(r, instance, os=None, no_startup=False, osparams=None):
     @param no_startup: Whether to start the instance automatically
     """
 
-    if _INST_REINSTALL_REQV1 in r.GetFeatures():
+    if INST_REINSTALL_REQV1 in r.features:
         body = {
             "start": not no_startup,
         }
@@ -578,6 +565,10 @@ def ReplaceInstanceDisks(r, instance, disks=None, mode=REPLACE_DISK_AUTO,
     @rtype: int
     @return: job id
     """
+
+    if mode not in REPLACE_DISK:
+        raise GanetiApiError("Invalid mode %r not one of %r" % (mode,
+                                                                REPLACE_DISK))
 
     query = {
         "mode": mode,
@@ -870,7 +861,7 @@ def EvacuateNode(r, node, iallocator=None, remote_node=None, dry_run=False,
     if remote_node:
         query["remote_node"] = remote_node
 
-    if _NODE_EVAC_RES1 in r.GetFeatures():
+    if NODE_EVAC_RES1 in r.features:
         # Server supports body parameters
         body = {
             "early_release": early_release,
@@ -931,7 +922,7 @@ def MigrateNode(r, node, mode=None, dry_run=False, iallocator=None,
         "dry-run": dry_run,
     }
 
-    if _NODE_MIGRATE_REQV1 in r.GetFeatures():
+    if NODE_MIGRATE_REQV1 in r.features:
         body = {}
 
         if mode is not None:
